@@ -1,111 +1,117 @@
 import torch
+import numpy as np
 from torch.utils.data import DataLoader
 import torch.optim as optim
 import torch.nn as nn
 from FFNN_POS import FFNNTagger
-from data_process import DataProcess
+from data_process import DataProcess, data_process_ffnn
 from sklearn.metrics import classification_report, confusion_matrix
-import numpy as np
 
-def data_process_ffnn(train_data, P, S, num_classes):
-    X = []
-    Y = []
-    for sentence in train_data:
-        for j in range(P, len(sentence) - S):
-            X.append(torch.tensor([sentence[i][0] for i in range(j - P, j + S + 1)]))
-            Y.append(torch.tensor(sentence[j][1]))
-    # apply one hot encoding to Y
-    Y = torch.nn.functional.one_hot(torch.tensor(Y), num_classes=num_classes).float()
-    X = torch.stack(X)
-    return torch.utils.data.TensorDataset(X, Y)
+class FFNNRunner:
+    def __init__(
+        self, 
+        train_file='', 
+        val_file='', 
+        test_file='', 
+        embedding_dim='', 
+        hidden_dim='', 
+        num_epochs=2, 
+        batch_size=1,
+        pre=1, 
+        suc=1,
+        lr=0.001
+    ):
+        self.data_process_train = DataProcess(train_file)
+        
+        self.train_data, self.word_to_ix, self.tag_to_ix = self.data_process_train.get_words_and_tags(self.data_process_train.data)
+        self.val_data = self.data_process_train.get_data_from_prev(val_file)
+        self.test_data = self.data_process_train.get_data_from_prev(test_file)
+        
+        self.train_data = data_process_ffnn(self.train_data, pre, suc, len(self.tag_to_ix))
+        self.val_data = data_process_ffnn(self.val_data, pre, suc, len(self.tag_to_ix))
+        self.test_data = data_process_ffnn(self.test_data, pre, suc, len(self.tag_to_ix))
+        
+        self.num_epochs = num_epochs
+        self.batch_size = batch_size
+        
+        # Create the FFNN model
+        self.model = FFNNTagger(
+            embedding_dim=embedding_dim,
+            hidden_dim=hidden_dim,
+            output_dim=len(self.tag_to_ix),
+            pre=pre,
+            suc=suc,
+            vocab_size=len(self.word_to_ix)
+        )
+        
+        self.criterion = nn.CrossEntropyLoss()
+        self.optimizer = optim.Adam(self.model.parameters(), lr=lr)
+        
+    def get_accuracy(self, model, data_loader):
+        model.eval()
+        with torch.no_grad():
+            correct = 0
+            total = 0
+            for data in data_loader:
+                inputs, labels = data
+                outputs = model(inputs)
+                _, predicted = torch.max(outputs.data, 1)
+                total += labels.size(0)
+                correct += (predicted == np.argmax(labels, axis=1)).sum().item()
+            accuracy = 100 * correct / total
+        return accuracy
+    
+    def train_model(self):
+        train_loader = DataLoader(self.train_data, batch_size=self.batch_size, shuffle=True)
+        for epoch in range(self.num_epochs):
+            self.model.train()
+            running_loss = 0.0
+            for i, data in enumerate(train_loader, 0):
+                inputs, labels = data
+                self.optimizer.zero_grad()
+                outputs = self.model(inputs)
+                loss = self.criterion(outputs, labels)
+                loss.backward()
+                self.optimizer.step()
+                running_loss += loss.item()
+            print(f"Epoch {epoch + 1}, Loss: {running_loss / len(train_loader)}")
+            val_accuracy = self.get_accuracy(self.model, DataLoader(self.val_data, batch_size=self.batch_size))
+            print(f"Validation Accuracy after epoch {epoch + 1}: {val_accuracy:.2f}%")
+    
+    def test_model(self):
+        test_loader = DataLoader(self.test_data, batch_size=self.batch_size)
+        test_accuracy = self.get_accuracy(self.model, test_loader)
+        print(f"Test Accuracy: {test_accuracy:.2f}%")
+        all_labels = []
+        all_predicted = []
+        for inputs, labels in test_loader:
+            outputs = self.model(inputs)
+            _, predicted = torch.max(outputs.data, 1)
+            all_labels.extend(np.argmax(labels, axis=1))
+            all_predicted.extend(predicted.numpy())
+        print(classification_report(all_labels, all_predicted, target_names=self.tag_to_ix.keys()))
+        print(confusion_matrix(all_labels, all_predicted))
 
+# Define model parameters
 EMBEDDING_DIM = 100
 HIDDEN_DIM = 128
 NUM_EPOCHS = 2
-BATCH_SIZE = 16
-P = 2
-S = 2
+BATCH_SIZE = 1
 
+file_paths = "UD_English-Atis/en_atis-ud-"
 
-data_process = DataProcess(file_path="./UD_English-Atis/en_atis-ud-train.conllu", flag=True, prev=P, succ=S)
-train_data, word_to_ix, tag_to_ix = data_process.get_words_and_tags(data_process.data)
+trainer = FFNNRunner(
+    train_file=file_paths + "train.conllu",
+    val_file=file_paths + "dev.conllu",
+    test_file=file_paths + "test.conllu",
+    embedding_dim=EMBEDDING_DIM,
+    hidden_dim=HIDDEN_DIM,
+    num_epochs=NUM_EPOCHS,
+    batch_size=BATCH_SIZE,
+    pre=1,
+    suc=1,
+    lr=0.001
+)
 
-print(tag_to_ix)
-print(len(tag_to_ix))
-
-train_data = data_process_ffnn(train_data, P, S, len(tag_to_ix))
-
-train_data = DataLoader(train_data, batch_size=BATCH_SIZE, shuffle=True)
-
-VOCAB_SIZE = len(word_to_ix)
-TAGSET_SIZE = len(tag_to_ix)
-
-model = FFNNTagger(EMBEDDING_DIM, HIDDEN_DIM, TAGSET_SIZE, P, S, word_to_ix, tag_to_ix)
-
-criterion = nn.CrossEntropyLoss()
-optimizer = optim.Adam(model.parameters(), lr=0.001)
-
-def get_accuracy(model, validating_data):
-    with torch.no_grad():
-        correct = 0
-        total = 0
-        for X, y in validating_data:
-            outputs = model(X)
-            _, predicted = torch.max(outputs.data, 1)
-            total += y.size(0)
-            correct += (predicted == np.argmax(y, axis=1)).sum().item()
-
-        print('Accuracy of the network on the %d validation examples: %d %%' %
-              (total, 100 * correct / total))
-        return (100 * correct / total)
-
-def train_model(model, train_loader, loss_function, optimizer, EPOCHS, validating_data):
-    running_loss = 0.0
-    prev_accuracy = 0
-
-    for epoch in range(EPOCHS):
-        running_loss = 0.0
-        print(f"Starting Epoch {epoch}")
-
-        for i, data in enumerate(train_loader):
-            inputs, labels = data
-            optimizer.zero_grad()
-            outputs = model(inputs)
-            loss = loss_function(outputs, labels)
-            loss.backward()
-            optimizer.step()
-
-            running_loss += loss.item()
-            if i % 2000 == 1999:  # print every 2000 mini-batches
-                print(f"[{epoch + 1}, {i + 1}] loss: {running_loss / 2000}")
-                running_loss = 0.0
-
-        print(f"Epoch {epoch} completed with loss {running_loss/len(train_loader)}")
-
-        # Calculate and print accuracy on validation data
-        prev_accuracy = get_accuracy(model, validating_data)
-        print(f"Epoch {epoch} Accuracy: {prev_accuracy}")
-        
-val_data = data_process.get_data_from_prev("./UD_English-Atis/en_atis-ud-dev.conllu")
-val_data = data_process_ffnn(val_data, P, S, len(tag_to_ix))
-val_data = DataLoader(val_data, batch_size=BATCH_SIZE, shuffle=True)
-
-train_model(model, train_data, criterion, optimizer, NUM_EPOCHS, val_data)
-
-def test_model(model, test_data):
-    y_true = []
-    y_pred = []
-    with torch.no_grad():
-        for X, y in test_data:
-            outputs = model(X)
-            _, predicted = torch.max(outputs.data, 1)
-            y_true.extend(np.argmax(y, axis=1))
-            y_pred.extend(predicted)
-    print(classification_report(y_true, y_pred, target_names=tag_to_ix.keys()))
-    print(confusion_matrix(y_true, y_pred))
-    
-test_data = data_process.get_data_from_prev("./UD_English-Atis/en_atis-ud-test.conllu")
-test_data = data_process_ffnn(test_data, P, S, len(tag_to_ix))
-test_data = DataLoader(test_data, batch_size=BATCH_SIZE, shuffle=True)
-
-test_model(model, test_data)
+trainer.train_model()
+trainer.test_model()
