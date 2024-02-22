@@ -9,6 +9,8 @@ from sklearn.metrics import classification_report, confusion_matrix
 data_process = DataProcess("./UD_English-Atis/en_atis-ud-train.conllu")
 train_data, word_to_ix, tag_to_ix = data_process.get_words_and_tags(data_process.data)
 
+train_loader = DataLoader(train_data, batch_size=1, shuffle=True)
+
 EMBEDDING_DIM = 100
 HIDDEN_DIM = 128
 VOCAB_SIZE = len(word_to_ix)
@@ -21,8 +23,6 @@ model = LSTMTagger(EMBEDDING_DIM, HIDDEN_DIM, VOCAB_SIZE, TAGSET_SIZE, 1)
 # Define the loss function and optimizer
 criterion = nn.CrossEntropyLoss()
 optimizer = optim.Adam(model.parameters(), lr=0.001)
-
-train_loader = DataLoader(train_data, batch_size=1, shuffle=True)
 
 def get_accuracy(model, validating_data):
     with torch.no_grad():
