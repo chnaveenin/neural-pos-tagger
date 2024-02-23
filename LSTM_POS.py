@@ -2,7 +2,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 class LSTMTagger(nn.Module):
-    def __init__(self, embedding_dim=100, hidden_dim=50, vocab_size=0, tagset_size=0, num_layers=0):
+    def __init__(self, embedding_dim=100, hidden_dim=50, vocab_size=0, tagset_size=0, activation='relu', num_layers=0):
         super(LSTMTagger, self).__init__()
         self.hidden_dim = hidden_dim
 
@@ -13,6 +13,11 @@ class LSTMTagger(nn.Module):
         self.lstm = nn.LSTM(embedding_dim, hidden_dim, num_layers)
         # The linear layer that maps from hidden state space to tag space
         self.hidden2tag = nn.Linear(hidden_dim, tagset_size)
+        # use activation function
+        if activation == 'relu':
+            self.relu = nn.ReLU()
+        elif activation == 'tanh':
+            self.relu = nn.Tanh()
 
     def forward(self, sentence):
         # for i in range(len(sentence)):
@@ -21,6 +26,8 @@ class LSTMTagger(nn.Module):
         embeds = self.word_embeddings(sentence)
         lstm_out, _ = self.lstm(
             embeds.view(len(sentence), 1, -1))
+        # apply activation function
+        lstm_out = self.relu(lstm_out)
         tag_space = self.hidden2tag(lstm_out.view(len(sentence), -1))
         tag_scores = F.log_softmax(tag_space, dim=1)
         return tag_scores

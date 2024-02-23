@@ -7,7 +7,7 @@ from data_process import DataProcess
 from sklearn.metrics import classification_report, confusion_matrix
 
 class LSTMRunner:
-    def __init__(self, train_file, val_file, test_file, embedding_dim=100, hidden_dim=128, lr=0.001, num_epochs=2, batch_size=1, num_layers=1):
+    def __init__(self, train_file, val_file, test_file, embedding_dim=100, hidden_dim=128, lr=0.001, num_epochs=2, batch_size=1, activation='relu', num_layers=1):
         self.data_process_train = DataProcess(train_file)
         
         self.train_data, self.word_to_ix, self.tag_to_ix = self.data_process_train.get_words_and_tags(self.data_process_train.data)
@@ -21,8 +21,9 @@ class LSTMRunner:
         self.lr = lr
         self.num_epochs = num_epochs
         self.batch_size = batch_size
+        self.activation = activation
         
-        self.model = LSTMTagger(self.embedding_dim, self.hidden_dim, self.vocab_size, self.tagset_size, num_layers)
+        self.model = LSTMTagger(self.embedding_dim, self.hidden_dim, self.vocab_size, self.tagset_size, activation, num_layers)
         self.criterion = nn.CrossEntropyLoss()
         self.optimizer = optim.Adam(self.model.parameters(), lr=self.lr)
         
@@ -46,6 +47,7 @@ class LSTMRunner:
     
     def train_model(self):
         train_loader = DataLoader(self.train_data, batch_size=self.batch_size, shuffle=True)
+        val_accuracy = 0
         for epoch in range(self.num_epochs):
             self.model.train()
             running_loss = 0.0
@@ -61,6 +63,7 @@ class LSTMRunner:
             print(f"Epoch {epoch + 1}, Loss: {running_loss / len(train_loader)}")
             val_accuracy = self.get_accuracy(self.model, self.val_data)
             print(f"Validation Accuracy after epoch {epoch + 1}: {val_accuracy:.2f}%")
+        return val_accuracy
     
     def test_model(self):
         test_loader = DataLoader(self.test_data, batch_size=self.batch_size)

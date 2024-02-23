@@ -1,0 +1,32 @@
+FFNN Hyperparameter Tuning
+Configuration: (100, 50, 'relu'), Accuracy: 96.58491863396745
+Configuration: (100, 50, 'tanh'), Accuracy: 97.61631904652762
+Configuration: (100, 100, 'relu'), Accuracy: 97.11207884483154
+Configuration: (100, 100, 'tanh'), Accuracy: 97.22667889067155
+Configuration: (200, 50, 'relu'), Accuracy: 97.13499885399955
+Configuration: (200, 50, 'tanh'), Accuracy: 96.03483841393536
+Configuration: (200, 100, 'relu'), Accuracy: 96.63075865230346
+Configuration: (200, 100, 'tanh'), Accuracy: 96.65367866147146
+Configuration: (100, 50, 0, 0, 'tanh'), Accuracy: 95.89102950030103
+Configuration: (100, 50, 1, 1, 'tanh'), Accuracy: 97.8731139792765
+Configuration: (100, 50, 2, 2, 'tanh'), Accuracy: 97.38711895484758
+Configuration: (100, 50, 3, 3, 'tanh'), Accuracy: 96.45909645909646
+Configuration: (100, 50, 4, 4, 'tanh'), Accuracy: 95.42454905411351
+
+LSTM Hyperparameter Tuning
+Configuration: (100, 50, 1, 'relu'), Accuracy: 96.8543046357616
+Configuration: (100, 50, 1, 'tanh'), Accuracy: 97.17037928958459
+Configuration: (100, 50, 2, 'relu'), Accuracy: 97.12522576760988
+Configuration: (100, 50, 2, 'tanh'), Accuracy: 97.17037928958459
+Configuration: (100, 100, 1, 'relu'), Accuracy: 97.20048163756773
+Configuration: (100, 100, 1, 'tanh'), Accuracy: 97.1101745936183
+Configuration: (100, 100, 2, 'relu'), Accuracy: 97.03491872366044
+Configuration: (100, 100, 2, 'tanh'), Accuracy: 96.95966285370258
+Configuration: (200, 50, 1, 'relu'), Accuracy: 97.3208910295003
+Configuration: (200, 50, 1, 'tanh'), Accuracy: 97.00481637567731
+Configuration: (200, 50, 2, 'relu'), Accuracy: 97.17037928958459
+Configuration: (200, 50, 2, 'tanh'), Accuracy: 96.71884406983744
+Configuration: (200, 100, 1, 'relu'), Accuracy: 97.26068633353401
+Configuration: (200, 100, 1, 'tanh'), Accuracy: 96.44792293798916
+Configuration: (200, 100, 2, 'relu'), Accuracy: 97.24563515954245
+Configuration: (200, 100, 2, 'tanh'), Accuracy: 96.41782059000602

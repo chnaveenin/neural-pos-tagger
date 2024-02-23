@@ -19,6 +19,7 @@ class FFNNRunner:
         batch_size=1,
         pre=1, 
         suc=1,
+        activation='relu',
         lr=0.001
     ):
         self.data_process_train = DataProcess(train_file)
@@ -41,7 +42,8 @@ class FFNNRunner:
             output_dim=len(self.tag_to_ix),
             pre=pre,
             suc=suc,
-            vocab_size=len(self.word_to_ix)
+            vocab_size=len(self.word_to_ix),
+            activation=activation
         )
         
         self.criterion = nn.CrossEntropyLoss()
@@ -63,6 +65,7 @@ class FFNNRunner:
     
     def train_model(self):
         train_loader = DataLoader(self.train_data, batch_size=self.batch_size, shuffle=True)
+        val_accuracy = 0
         for epoch in range(self.num_epochs):
             self.model.train()
             running_loss = 0.0
@@ -77,6 +80,7 @@ class FFNNRunner:
             print(f"Epoch {epoch + 1}, Loss: {running_loss / len(train_loader)}")
             val_accuracy = self.get_accuracy(self.model, DataLoader(self.val_data, batch_size=self.batch_size))
             print(f"Validation Accuracy after epoch {epoch + 1}: {val_accuracy:.2f}%")
+        return val_accuracy
     
     def test_model(self):
         test_loader = DataLoader(self.test_data, batch_size=self.batch_size)
@@ -90,8 +94,9 @@ class FFNNRunner:
             _, predicted = torch.max(outputs.data, 1)
             all_labels.extend(np.argmax(labels, axis=1))
             all_predicted.extend(predicted.numpy())
-        print(classification_report(all_labels, all_predicted, target_names=self.tag_to_ix.keys()))
+        print(classification_report(all_labels, all_predicted, target_names=self.tag_to_ix.keys(), zero_division=0))
         print(confusion_matrix(all_labels, all_predicted))
+        return test_accuracy
         
     def predict(self, sentence):
         sentence = sentence.split()
