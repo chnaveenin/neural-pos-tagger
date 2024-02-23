@@ -86,32 +86,28 @@ class FFNNRunner:
         all_predicted = []
         for inputs, labels in test_loader:
             outputs = self.model(inputs)
+            # print(inputs.shape)
             _, predicted = torch.max(outputs.data, 1)
             all_labels.extend(np.argmax(labels, axis=1))
             all_predicted.extend(predicted.numpy())
         print(classification_report(all_labels, all_predicted, target_names=self.tag_to_ix.keys()))
         print(confusion_matrix(all_labels, all_predicted))
-
-# Define model parameters
-EMBEDDING_DIM = 100
-HIDDEN_DIM = 128
-NUM_EPOCHS = 2
-BATCH_SIZE = 1
-
-file_paths = "UD_English-Atis/en_atis-ud-"
-
-trainer = FFNNRunner(
-    train_file=file_paths + "train.conllu",
-    val_file=file_paths + "dev.conllu",
-    test_file=file_paths + "test.conllu",
-    embedding_dim=EMBEDDING_DIM,
-    hidden_dim=HIDDEN_DIM,
-    num_epochs=NUM_EPOCHS,
-    batch_size=BATCH_SIZE,
-    pre=1,
-    suc=1,
-    lr=0.001
-)
-
-trainer.train_model()
-trainer.test_model()
+        
+    def predict(self, sentence):
+        sentence = sentence.split()
+        for i in range(len(sentence)):
+            try:
+                sentence[i] = self.word_to_ix[sentence[i]]
+            except:
+                sentence[i] = self.word_to_ix["<UNK>"]
+        for i in range(self.model.p):
+            sentence.insert(0, self.word_to_ix["<UNK>"])
+        for i in range(self.model.s):
+            sentence.append(self.word_to_ix["<UNK>"])
+        inputs = [sentence[i:i+self.model.p+self.model.s+1] for i in range(len(sentence)-self.model.p-self.model.s)]
+        inputs = [torch.tensor(ele) for ele in inputs]
+        inputs = torch.stack(inputs)
+        outputs = self.model(inputs)
+        _, predicted = torch.max(outputs.data, 1)
+        predicted_tags = predicted.numpy().tolist()
+        return self.data_process_train.get_tags_from_ix(predicted_tags)

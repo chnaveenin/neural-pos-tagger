@@ -3,7 +3,7 @@ from torch.utils.data import DataLoader
 import torch.optim as optim
 import torch.nn as nn
 from LSTM_POS import LSTMTagger
-from data_process import DataProcess, data_process_lstm
+from data_process import DataProcess
 from sklearn.metrics import classification_report, confusion_matrix
 
 class LSTMRunner:
@@ -77,24 +77,16 @@ class LSTMRunner:
             all_predicted.extend(predicted.numpy())
         print(classification_report(all_labels, all_predicted, target_names=self.tag_to_ix.keys()))
         print(confusion_matrix(all_labels, all_predicted))
-
-EMBEDDING_DIM = 100
-HIDDEN_DIM = 128
-NUM_EPOCHS = 2
-BATCH_SIZE = 1
-NUM_LAYERS = 1
-
-file_paths = "UD_English-Atis/en_atis-ud-"
-
-trainer = LSTMRunner(
-    train_file=file_paths + "train.conllu",
-    val_file=file_paths + "dev.conllu",
-    test_file=file_paths + "test.conllu",
-    embedding_dim=EMBEDDING_DIM,
-    hidden_dim=HIDDEN_DIM,
-    num_epochs=NUM_EPOCHS,
-    batch_size=BATCH_SIZE,
-    num_layers=NUM_LAYERS
-)
-trainer.train_model()
-trainer.test_model()
+        
+    def predict(self, sentence):
+        sentence = sentence.split()
+        for i in range(len(sentence)):
+            if sentence[i] not in self.word_to_ix:
+                sentence[i] = self.word_to_ix["<UNK>"]
+            else:
+                sentence[i] = self.word_to_ix[sentence[i]]
+        inputs = torch.tensor([sentence[i:i+1] for i in range(len(sentence))])
+        outputs = self.model(inputs)
+        _, predicted = torch.max(outputs.data, 1)
+        predicted_tags = predicted.numpy().tolist()
+        return self.data_process_train.get_tags_from_ix(predicted_tags)
